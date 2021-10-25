@@ -1,0 +1,6 @@
+data/*
+logs/*
+slurmlogs/*
+*/__pycache__/*
+*.pyc
+.vscode/*
