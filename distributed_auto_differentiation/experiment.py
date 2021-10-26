@@ -71,7 +71,7 @@ if args.optimizer.lower() == "adam":
 elif args.optimizer.lower() == "sgd":
     optimizer = torch.optim.SGD(params=model.parameters(), lr=args.lr)
 scheduler = None
-full_data = get_dataset(args.dataset)
+full_data, num_classes = get_dataset(args.dataset)
 
 N = len(full_data)
 nrange = range(N)
@@ -110,13 +110,13 @@ runner.train(
     verbose=True,
     ddp=True,
     callbacks={
-         "accuracy": dl.AccuracyCallback(input_key="logits", target_key="targets", num_classes=2),
+         "accuracy": dl.AccuracyCallback(input_key="logits", target_key="targets", num_classes=num_classes),
          "precision-recall": dl.PrecisionRecallF1SupportCallback(
-             input_key="logits", target_key="targets", num_classes=2
+             input_key="logits", target_key="targets", num_classes=num_classes
          ),
          "auc": dl.AUCCallback(input_key="logits", target_key="targets"),
          "conf": dl.ConfusionMatrixCallback(
-             input_key="logits", target_key="targets", num_classes=2
+             input_key="logits", target_key="targets", num_classes=num_classes
          ),
     }
 )

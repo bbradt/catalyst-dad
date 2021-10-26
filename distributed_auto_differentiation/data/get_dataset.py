@@ -13,6 +13,7 @@ def get_dataset(name, *args, **kwargs):
         ])
         dataset = MNIST('data', train=True, download=True,
                                transform=transform)
+        num_classes = 10
     elif name.lower() == "catsvsdogs":
         transform = transforms.Compose(
             [
@@ -24,6 +25,7 @@ def get_dataset(name, *args, **kwargs):
         )
         train_list = glob.glob(os.path.join("data", "dogsVsCats", "train", '*.jpg'))
         dataset = CatsDogsDataset(train_list, *args, transform=transform, **kwargs)
-    return dataset
+        num_classes = 2
+    return dataset, num_classes
 
 

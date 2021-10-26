@@ -1,7 +1,7 @@
 import torch
 
 
-def power_iteration_BC(B, C, rank=10, numiterations=20, device='cuda', tol=1e-3):
+def power_iteration_BC(B, C, rank=5, numiterations=3, device='cuda', tol=1e-3):
     [cm, cn] = C.shape
     if cm > cn:
         CC = torch.mm(C.T, C)

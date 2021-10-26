@@ -39,7 +39,7 @@ class DistributedRunner(dl.Runner):
                 self._rankdad_backward()
             runtime = time.time() - start_time
             self.batch_metrics.update({"runtime": runtime})
-            self.meters["cumulative_runtime"].update(self.batch_metrics["runtime"], self.batch_size)
+            self.meters["cumulative_runtime"].update(self.batch_metrics["runtime"], 1)
             self.optimizer.step()  
         self.batch = dict(features=input, targets=target, logits=logits)
 

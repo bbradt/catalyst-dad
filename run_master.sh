@@ -27,5 +27,5 @@ eval "$(conda shell.bash hook)"
 conda activate catalyst
 cd /data/users2/bbaker/projects/dist_autodiff
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/users2/bbaker/bin/miniconda3/lib
-PYTHONPATH=. python distributed_auto_differentiation/experiment.py --rank $rank --num-nodes $num_nodes --backend $backend --num-nodes $num_nodes --lr $lr --batch-size $batch_size --epochs $epochs --name $name --distributed-mode $distributed_mode --num-folds $num_folds --model $model --dataset $dataset --k $k --backend $backend
+PYTHONPATH=. python distributed_auto_differentiation/experiment.py --dist-url tcp://${master}:8998 --master-port 8998 --master-addr ${master} --rank $rank --num-nodes $num_nodes --backend $backend --num-nodes $num_nodes --lr $lr --batch-size $batch_size --epochs $epochs --name $name --distributed-mode $distributed_mode --num-folds $num_folds --model $model --dataset $dataset --k $k --backend $backend
 
