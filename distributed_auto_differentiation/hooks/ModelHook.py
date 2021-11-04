@@ -7,9 +7,7 @@ except Exception:
 
 
 class ModelHook:
-    def __init__(
-        self, model, verbose=False, layer_names=None, register_self=True, save=True
-    ):
+    def __init__(self, model, verbose=False, layer_names=None, register_self=True, save=True):
         "TODO: Brad  - write docs"
         self.model = model
         self.verbose = verbose
@@ -54,8 +52,7 @@ class ModelHook:
         return hook_fun
 
     def backward_hook_fn(self, module, input, output):
-        """TODO: Brad- write docs
-        """
+        """TODO: Brad- write docs"""
         try:
             pydevd.settrace(suspend=False, trace_only_current_thread=True)
         except Exception:
@@ -87,7 +84,7 @@ class ModelHook:
         model.hook = self
         # Explain this for-loop
         for m_i, module in enumerate(rev_mod):
-            self.keys.append(str(module) + str(m_i))            
+            self.keys.append(str(module) + str(m_i))
             self.parameters.append(nn.ParameterDict(module.named_parameters()))
             module._order = str(module) + str(m_i)
             module.register_forward_hook(self.forward_hook_fn)

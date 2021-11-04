@@ -1,8 +1,9 @@
-import os 
 import glob
+import os
+
 import matplotlib.pyplot as plt
-import seaborn as sb
 import pandas as pd
+import seaborn as sb
 
 name = "mnist_increase_sites"
 form = "%s*" % name
