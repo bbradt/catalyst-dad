@@ -6,6 +6,14 @@ import glob
 from torchvision import transforms
 
 def get_dataset(name, *args, **kwargs):
+    """This is a generic getter for datasets, which cleans up the parts of 
+            experiments.py which grabs the dataset. This function serves as a
+            basic switch function which returns the dataset according to its name.
+
+        Accepted names for this function are:
+            "mnist"
+            "catsvsdogs"
+    """
     if name.lower() == "mnist":
         transform = transforms.Compose([
             transforms.ToTensor(),
@@ -14,12 +22,12 @@ def get_dataset(name, *args, **kwargs):
         dataset = MNIST('data', train=True, download=True,
                                transform=transform)
         num_classes = 10
-    elif name.lower() == "catsvsdogs":
+    elif name.lower() == "catsvsdogs" or name.lower() == "dogsvscats":
         transform = transforms.Compose(
             [
                 transforms.Resize((224, 224)),
-                #transforms.RandomResizedCrop(224),
-                #transforms.RandomHorizontalFlip(),
+                transforms.RandomResizedCrop(224),
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
             ]
         )

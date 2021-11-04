@@ -2,6 +2,21 @@ import torch
 
 
 def power_iteration_BC(B, C, rank=5, numiterations=3, device='cuda', tol=1e-3):
+    """This function is the main workhorse of rank-dAD. The original function was 
+            written by Sergey Plis in numpy, then translated into pytorch by Bradley Baker,
+            and then modified by Sergey Plis and Bradley Baker. 
+
+        Args: 
+            B - The initial left matrix for the power-iteration based factorization
+            C - the initial right matrix for the power-iteration based factorization
+        Kwargs:
+            rank - the maximum effective rank to use
+            numiterations - the number of power iterations to perform
+            device - the device where tensors will remain
+            tol - a float tolerance used for removing "insignificant" eigenvectors
+        Returns:
+            The "rank" top left and right eigenvectors
+    """
     [cm, cn] = C.shape
     if cm > cn:
         CC = torch.mm(C.T, C)
@@ -33,7 +48,6 @@ def power_iteration_BC(B, C, rank=5, numiterations=3, device='cuda', tol=1e-3):
         if not is_sigma: return zero_result()
         # start with one of the columns
         b_k = torch.rand(B.shape[0], device=device)
-        # b_k = B[:, 0]  # np.random.randn(B.shape[0])
         if computed_eigs:
             bb, vv = past_values(computed_eigs)
         for _ in range(numiterations):

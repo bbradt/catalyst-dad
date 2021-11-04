@@ -1,3 +1,5 @@
+"""Visual Transformer model definition using Linformer"""
+
 from linformer import Linformer
 from vit_pytorch.efficient import ViT
 from distributed_auto_differentiation.hooks import ModelHook

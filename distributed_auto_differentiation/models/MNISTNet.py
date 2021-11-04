@@ -1,8 +1,11 @@
+"""Simple FF network for MNIST.
+Based off this: https://github.com/pytorch/examples/blob/master/mnist/main.py**
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# **Define neural network. I just burrowed from here: https://github.com/pytorch/examples/blob/master/mnist/main.py**
 class MNISTNet(nn.Module):
     def __init__(self):
         super(MNISTNet, self).__init__()
