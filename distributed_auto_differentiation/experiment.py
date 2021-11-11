@@ -1,23 +1,23 @@
 # Library Imports
 import argparse
-import os
 import json
+import os
+
+from catalyst import dl
+from sklearn.model_selection import KFold
 import torch
 import torch.nn as nn
 
-from catalyst import dl
-
-#from torchvision import datasets, transforms
-
-
-from sklearn.model_selection import KFold
+from distributed_auto_differentiation.data import get_dataset
+from distributed_auto_differentiation.hooks import ModelHook
+from distributed_auto_differentiation.models import get_model
 
 # Module Imports
 from distributed_auto_differentiation.runners import DistributedRunner
-from distributed_auto_differentiation.models import get_model
-from distributed_auto_differentiation.hooks import ModelHook
 from distributed_auto_differentiation.utils import chunks
-from distributed_auto_differentiation.data import get_dataset
+
+# from torchvision import datasets, transforms
+
 
 # Argument Parsing
 argparser = argparse.ArgumentParser()
@@ -49,12 +49,11 @@ experiment_dir = os.path.join(args.log_dir, args.name, "site_%d" % args.rank)
 os.makedirs(experiment_dir, exist_ok=True)
 
 # initialize distributed process
-os.environ['MASTER_ADDR'] = args.master_addr
-os.environ['MASTER_PORT'] = args.master_port
-torch.distributed.init_process_group(backend=args.backend,
-                                     init_method=args.dist_url,
-                                     world_size=args.num_nodes,
-                                     rank=args.rank)
+os.environ["MASTER_ADDR"] = args.master_addr
+os.environ["MASTER_PORT"] = args.master_port
+torch.distributed.init_process_group(
+    backend=args.backend, init_method=args.dist_url, world_size=args.num_nodes, rank=args.rank
+)
 
 # first barrier to coordinate workers and master
 torch.distributed.barrier()
@@ -89,12 +88,16 @@ train_data = torch.utils.data.Subset(train_data, mychunk)
 valid_data = torch.utils.data.Subset(full_data, test_itr)
 
 loaders = {
-    "train": torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=True, drop_last=True),
-    "valid": torch.utils.data.DataLoader(valid_data, batch_size=args.batch_size, shuffle=True, drop_last=True),
+    "train": torch.utils.data.DataLoader(
+        train_data, batch_size=args.batch_size, shuffle=True, drop_last=True
+    ),
+    "valid": torch.utils.data.DataLoader(
+        valid_data, batch_size=args.batch_size, shuffle=True, drop_last=True
+    ),
 }
 
 # Create catalyst runner
-runner = DistributedRunner(model,criterion, optimizer, mode=args.distributed_mode)
+runner = DistributedRunner(model, criterion, optimizer, mode=args.distributed_mode)
 
 # run the catalyst experiment
 runner.train(
@@ -110,13 +113,15 @@ runner.train(
     verbose=True,
     ddp=True,
     callbacks={
-         "accuracy": dl.AccuracyCallback(input_key="logits", target_key="targets", num_classes=num_classes),
-         "precision-recall": dl.PrecisionRecallF1SupportCallback(
-             input_key="logits", target_key="targets", num_classes=num_classes
-         ),
-         "auc": dl.AUCCallback(input_key="logits", target_key="targets"),
-         "conf": dl.ConfusionMatrixCallback(
-             input_key="logits", target_key="targets", num_classes=num_classes
-         ),
-    }
+        "accuracy": dl.AccuracyCallback(
+            input_key="logits", target_key="targets", num_classes=num_classes
+        ),
+        "precision-recall": dl.PrecisionRecallF1SupportCallback(
+            input_key="logits", target_key="targets", num_classes=num_classes
+        ),
+        "auc": dl.AUCCallback(input_key="logits", target_key="targets"),
+        "conf": dl.ConfusionMatrixCallback(
+            input_key="logits", target_key="targets", num_classes=num_classes
+        ),
+    },
 )
