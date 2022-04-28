@@ -1,0 +1,16 @@
+/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/sklearn/utils/optimize.py:18: DeprecationWarning:
+
+Please use `line_search_wolfe2` from the `scipy.optimize` namespace, the `scipy.optimize.linesearch` namespace is deprecated.
+
+/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/sklearn/utils/optimize.py:18: DeprecationWarning:
+
+Please use `line_search_wolfe1` from the `scipy.optimize` namespace, the `scipy.optimize.linesearch` namespace is deprecated.
+
+Traceback (most recent call last):
+  File "distributed_auto_differentiation/experiment.py", line 23, in <module>
+    from distributed_auto_differentiation.runners import DistributedRunner
+  File "/data/users2/bbaker/projects/dist_autodiff/distributed_auto_differentiation/runners/__init__.py", line 1, in <module>
+    from .DistributedRunner import DistributedRunner
+  File "/data/users2/bbaker/projects/dist_autodiff/distributed_auto_differentiation/runners/DistributedRunner.py", line 1, in <module>
+    from catalyst import dl, metrics
+ImportError: cannot import name 'metrics' from 'catalyst' (/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/catalyst/__init__.py)

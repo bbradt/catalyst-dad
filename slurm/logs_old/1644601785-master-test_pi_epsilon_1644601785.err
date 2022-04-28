@@ -1,0 +1,61 @@
+Traceback (most recent call last):
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/git/__init__.py", line 87, in <module>
+    refresh()
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/git/__init__.py", line 76, in refresh
+    if not Git.refresh(path=path):
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/git/cmd.py", line 340, in refresh
+    raise ImportError(err)
+ImportError: Bad git executable.
+The git executable must be specified in one of the following ways:
+    - be included in your $PATH
+    - be set via $GIT_PYTHON_GIT_EXECUTABLE
+    - explicitly set via git.refresh()
+
+All git commands will error until this is rectified.
+
+This initial warning can be silenced or aggravated in the future by setting the
+$GIT_PYTHON_REFRESH environment variable. Use one of the following values:
+    - quiet|q|silence|s|none|n|0: for no warning or exception
+    - warn|w|warning|1: for a printed warning
+    - error|e|raise|r|2: for a raised exception
+
+Example:
+    export GIT_PYTHON_REFRESH=quiet
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "distributed_auto_differentiation/experiment.py", line 18, in <module>
+    from catalyst import dl
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/catalyst/dl/__init__.py", line 4, in <module>
+    from catalyst.core import *
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/catalyst/core/__init__.py", line 10, in <module>
+    from .runner import IRunner, IStageBasedRunner
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/catalyst/core/runner.py", line 10, in <module>
+    from catalyst.core import utils
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/catalyst/core/utils/__init__.py", line 4, in <module>
+    from catalyst.utils import *
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/catalyst/utils/__init__.py", line 67, in <module>
+    from .pipelines import clone_pipeline
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/catalyst/utils/pipelines.py", line 4, in <module>
+    from git import Repo as repo
+  File "/data/users2/bbaker/bin/miniconda3/envs/cat2/lib/python3.8/site-packages/git/__init__.py", line 89, in <module>
+    raise ImportError('Failed to initialize: {0}'.format(exc)) from exc
+ImportError: Failed to initialize: Bad git executable.
+The git executable must be specified in one of the following ways:
+    - be included in your $PATH
+    - be set via $GIT_PYTHON_GIT_EXECUTABLE
+    - explicitly set via git.refresh()
+
+All git commands will error until this is rectified.
+
+This initial warning can be silenced or aggravated in the future by setting the
+$GIT_PYTHON_REFRESH environment variable. Use one of the following values:
+    - quiet|q|silence|s|none|n|0: for no warning or exception
+    - warn|w|warning|1: for a printed warning
+    - error|e|raise|r|2: for a raised exception
+
+Example:
+    export GIT_PYTHON_REFRESH=quiet
+

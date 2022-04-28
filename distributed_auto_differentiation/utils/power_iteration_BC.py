@@ -1,7 +1,7 @@
 import torch
 
 
-def power_iteration_BC(B, C, rank=5, numiterations=3, device='cuda', tol=1e-3):
+def power_iteration_BC(B, C, rank=3, numiterations=1, device='cuda', tol=1e-3, compute_sigma=True):
     """This function is the main workhorse of rank-dAD. The original function was 
             written by Sergey Plis in numpy, then translated into pytorch by Bradley Baker,
             and then modified by Sergey Plis and Bradley Baker. 
@@ -25,7 +25,7 @@ def power_iteration_BC(B, C, rank=5, numiterations=3, device='cuda', tol=1e-3):
         BCT = torch.mm(B, C.T)
         BCC = torch.mm(BCT, BCT.T)
 
-    def zero_result():
+    def zero_result():        
         sigma = torch.tensor(0.0, device=device)
         b_k = torch.zeros(B.shape[0], device=device)
         c_k = torch.zeros(C.shape[0], device=device)
@@ -63,12 +63,14 @@ def power_iteration_BC(B, C, rank=5, numiterations=3, device='cuda', tol=1e-3):
             b_k1_norm = torch.norm(b_k1)
             # re normalize the vector
             b_k = b_k1 / b_k1_norm
-
-        if cm > cn:
-            sigma = eigenvalue(B, b_k)
+        if compute_sigma:
+            if cm > cn:
+                sigma = eigenvalue(B, b_k)
+            else:
+                sigma = eigenvalue2(B, b_k)
+            if torch.isnan(sigma): return zero_result()
         else:
-            sigma = eigenvalue2(B, b_k)
-        if torch.isnan(sigma): return zero_result()
+            sigma = 1
         if cm > cn:
             c_k = torch.mv(C, torch.mv(B.T, b_k)) / sigma
         else:

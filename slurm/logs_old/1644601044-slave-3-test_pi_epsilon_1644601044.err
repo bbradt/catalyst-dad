@@ -1,0 +1,65 @@
+
+CommandNotFoundError: No command 'conda activat'.
+Did you mean 'conda activate'?
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:30: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:167: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:284: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:862: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1101: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1127: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1362: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1602: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1738: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/sklearn/decomposition/online_lda.py:29: DeprecationWarning:
+
+`np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+
+alchemy not available, to install alchemy, run `pip install alchemy-catalyst`.
+Traceback (most recent call last):
+  File "distributed_auto_differentiation/experiment.py", line 20, in <module>
+    import torchvision.transforms as transforms
+  File "/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/torchvision/__init__.py", line 3, in <module>
+    from torchvision import models
+  File "/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/torchvision/models/__init__.py", line 5, in <module>
+    from .inception import *
+  File "/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/torchvision/models/inception.py", line 8, in <module>
+    from torch.jit.annotations import Optional
+ImportError: cannot import name 'Optional' from 'torch.jit.annotations' (/data/users2/bbaker/bin/miniconda3/lib/python3.7/site-packages/torch/jit/annotations.py)

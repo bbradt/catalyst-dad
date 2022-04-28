@@ -4,7 +4,8 @@ from linformer import Linformer
 from vit_pytorch.efficient import ViT
 from distributed_auto_differentiation.hooks import ModelHook
 
-def build_vit(dim=128, seq_len=49+1, depth=12, heads=8, k=64, image_size=224, patch_size=32, num_classes=2, channels=3):
+def build_vit(dim=128, seq_len=49+1, depth=12, heads=8, k=64, image_size=224, patch_size=32, num_classes=10, channels=3):
+    #seq_len = int(image_size/patch_size) + 1
     efficient_transformer = Linformer(
         dim=dim,
         seq_len=seq_len,  # 7x7 patches + 1 cls-token
