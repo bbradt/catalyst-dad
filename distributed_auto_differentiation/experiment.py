@@ -101,6 +101,8 @@ if __name__=="__main__":
     # initialize distributed process
     os.environ['MASTER_ADDR'] = args.master_addr
     os.environ['MASTER_PORT'] = args.master_port
+    if args.backend == 'nccl':
+        os.environ['NCCL_IB_DISABLE'] = 1
 
     print("Just Before Kill!!")
     os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
