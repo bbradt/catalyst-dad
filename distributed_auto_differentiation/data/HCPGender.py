@@ -6,7 +6,7 @@ import numpy as np
 
 class HCPGenderDataset(Dataset):
     def __init__(self, label_file='./data/HCP_Gender/labels_HCP_Gender.csv', sessions='./data/HCP_Gender/HCP_AllData_sess1.npz', 
-            window_size=10, temporal_size=256, window_stride=1, num_components=100):
+            window_size=10, temporal_size=256, window_stride=10, num_components=100):
         self.sessions = sessions
         self.labels = np.loadtxt(label_file)
         data = np.load(sessions)
