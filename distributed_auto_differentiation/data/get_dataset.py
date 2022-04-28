@@ -1,6 +1,7 @@
 from catalyst.contrib.datasets import MNIST
 from distributed_auto_differentiation.data import HCPGender
 #from catalyst.data import ToTensor
+from catalyst.contrib.data import ImageToTensor
 from distributed_auto_differentiation.data.CatsDogsDataset import CatsDogsDataset
 from distributed_auto_differentiation.data.FSLDataset import FSLDataset
 from distributed_auto_differentiation.data.HCPGender import HCPGenderDataset
@@ -8,6 +9,7 @@ import os
 import glob
 from torchvision import transforms
 from torchvision.datasets import ImageFolder, CIFAR10
+
 
 
 def get_dataset(name, *args, **kwargs):
@@ -27,7 +29,7 @@ def get_dataset(name, *args, **kwargs):
             transforms.Normalize((0.1307,), (0.3081,))
         ])
         dataset = MNIST('data', train=True, download=True,
-                               transform=transform)
+                                normalize=(0.1307,0.3081,))
         num_classes = 10
     elif name.lower() == "catsvsdogs" or name.lower() == "dogsvscats":
         transform = transforms.Compose(

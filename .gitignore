@@ -4,3 +4,8 @@ slurmlogs/*
 */__pycache__/*
 *.pyc
 .vscode/*
+*.ipynb
+.gitignore
+logs
+plots
+*.sh

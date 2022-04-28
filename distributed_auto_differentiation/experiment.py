@@ -29,7 +29,6 @@ from distributed_auto_differentiation.callbacks import BatchTimerCallback
 #from distributed_auto_differentiation.criterion.msece import msece
 
 if __name__=="__main__":
-
     # Argument Parsing
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--rank", type=int, default=0, help="The rank of this node in the distributed network")
@@ -43,7 +42,7 @@ if __name__=="__main__":
     argparser.add_argument("--epochs", type=int, default=10, help="The number of epochs to run")
     argparser.add_argument("--name", type=str, default="NONE", help="The name of the experiment. This determines the output directory.")
     argparser.add_argument("--log-dir", type=str, default="logs", help="The catalyst log directory.")
-    argparser.add_argument("--distributed-mode", type=str, default="rankdad", help="The type of distributed training to perform: dad, rankdad, or dsgd.")
+    argparser.add_argument("--distributed-mode", type=str, default="dsgd", help="The type of distributed training to perform: dad, rankdad, or dsgd.")
     argparser.add_argument("--num-folds", type=int, default=10, help="The number of CV folds to support")
     argparser.add_argument("--model", type=str, default="vit", help="The model to use for training - this supports prebuilt models")
     argparser.add_argument("--model-args", type=str, default="[]", help="A list of arguments to send to the model")
@@ -102,11 +101,15 @@ if __name__=="__main__":
     # initialize distributed process
     os.environ['MASTER_ADDR'] = args.master_addr
     os.environ['MASTER_PORT'] = args.master_port
+
+    print("Just Before Kill!!")
     os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
     torch.distributed.init_process_group(backend=args.backend,
                                         init_method=args.dist_url,
                                         world_size=args.num_nodes,
                                         rank=args.rank)
+
+    print("the environment variables have been initiaized!")
 
     # first barrier to coordinate workers and master
     torch.distributed.barrier()
