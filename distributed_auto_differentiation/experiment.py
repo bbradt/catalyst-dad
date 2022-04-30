@@ -114,7 +114,7 @@ if __name__=="__main__":
     print("the environment variables have been initiaized!")
 
     # first barrier to coordinate workers and master
-    torch.distributed.barrier()
+    #torch.distributed.barrier()
     real_batch = args.batch_size
 
     # Load dataset according to world rank

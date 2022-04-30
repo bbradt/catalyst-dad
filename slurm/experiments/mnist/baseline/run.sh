@@ -1,9 +1,13 @@
-rm -r logs/mnist_baseline* -v
-for k in {0..10}
+#rm -r logs/cifar10_baseline* -v
+name="powerSGD-baseline"
+backend="gloo"
+batch=64
+epochs=2
+kwargs="\"--lr 0.001 --batch-size 64 --epochs 10 --distributed-mode powersgd --dataset mnist --model mnistnet --backend gloo --N -1 --k 0\""
+fold=5
+for k in {0..5}
 do
 echo fold $k
-#k=0
-bash run_slurm_batch.sh mnist_baseline 4 0.001 32 10 dsgd mnistnet mnist 10 $k gloo
-bash run_slurm_batch.sh mnist_baseline 4 0.001 32 10 dad mnistnet mnist 10 $k gloo
-bash run_slurm_batch.sh mnist_baseline 4 0.001 32 10 rankdad mnistnet mnist 10 $k gloo
+bash slurm/run_slurm_batch.sh $name 4 "$kwargs"
+break
 done

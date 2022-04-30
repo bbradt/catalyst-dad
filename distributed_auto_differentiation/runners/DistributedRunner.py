@@ -12,11 +12,39 @@ def invalidArgs(func, argdict):
     if varkw: return set()  # All accepted
     return set(argdict) - set(varkw)
 
+class RunnerState:
+    def __init__(self):
+        self.error_dict = dict()
+        self.Ps = dict()
+        self.Qs = dict()
+        self.iter = 0
+
+def gram_schmidt(vv):
+    def projection(u, v):
+        return (v * u).sum() / (u * u).sum() * u
+
+    nk = vv.size(1)
+    uu = torch.zeros_like(vv, device=vv.device)
+    uu[:, 0] = vv[:, 0].clone()
+    for k in range(1, nk):
+        vk = vv[:, k].clone()
+        uk = 0
+        for j in range(0, k):
+            uj = uu[:, j].clone()
+            uk = uk + projection(uj, vk)
+        uu[:, k] = vk - uk
+    for k in range(nk):
+        uk = uu[:, k].clone()
+        uu[:, k] = uk / uk.norm()
+    return uu
+
 class DistributedRunner(dl.Runner):
     """This is the distributed Runner for Catalyst, which handles batch activity
             This class also contains the important functions needed for dSGD, dAD, and rank-dAD.
     """
-    def __init__(self, model=None, criterion=None, optimizer=None, mode="dsgd", rank=None, **kwargs):
+    def __init__(self, model=None, criterion=None, optimizer=None, distributed_mode="dsgd", rank=None,
+                matrix_approximation_rank=1, start_powerSGD_iter=10, use_error_feedback=True, 
+                warm_start=True, **kwargs):
         """Kwargs:
             model - the pytorch model to run
             criterion - the loss function to use
@@ -27,18 +55,22 @@ class DistributedRunner(dl.Runner):
         #invalids = invalidArgs(super(DistributedRunner, self).__init__, kwargs)
         #valid_kwargs = {k:v for k, v in kwargs.items() if k not in invalids}
         super(DistributedRunner, self).__init__()
+        #print("KWARGS", kwargs)
+        #exit()
         self.optimizer = optimizer
         self.model = model
         self.criterion = criterion
         self.kwargs = kwargs
-        self.mode = mode.lower()
+        self.mode = distributed_mode.lower()
+        self.rank = rank        
+        self.state = RunnerState()
 
     def on_loader_start(self, runner):
         """This function initializes measured metrics on dataloader start"""
         super().on_loader_start(runner)
         self.meters = {
             key: metrics.AdditiveMetric(compute_on_call=False)
-            for key in ["loss", "cumulative_runtime"]
+            for key in ["loss"]
         }
     def handle_batch(self, batch): 
         """This function handles the batch computation, and is where 
@@ -60,6 +92,7 @@ class DistributedRunner(dl.Runner):
         if self.is_train_loader:
             loss.backward()
             start_time = time.time()
+            #print("WHATS MODE ", self.mode)
             # Below is the switch for different distributed AD methods
             if self.mode == "dad":
                 comm = self._dad_backward(**self.kwargs)
@@ -71,11 +104,13 @@ class DistributedRunner(dl.Runner):
                 comm = self._rankdad_p2p_backward(**self.kwargs)
             elif self.mode == "topk":
                 comm = self._topk_backward(**self.kwargs)
+            elif self.mode == "powersgd":
+                comm = self._powersgd_backward(**self.kwargs)
             # update batch runtime
             runtime = time.time() - start_time
             self.batch_metrics.update({"runtime": runtime})
-            self.meters["cumulative_runtime"].update(self.batch_metrics["runtime"], 1)
-            self.batch_metrics.update({"bits": runtime})
+            #self.meters["cumulative_runtime"].update(self.batch_metrics["runtime"], 1)
+            self.batch_metrics.update({"bits": comm})
             # Step optimizer
             self.optimizer.step()  
         self.batch = dict(features=input, targets=target, logits=logits)
@@ -115,6 +150,33 @@ class DistributedRunner(dl.Runner):
                 parameters["bias"].grad.data = delta_gathered.sum(0)
         return comm
 
+    def _powersgd_backward(self, rank=1, **kwargs):
+        #print("HEYYYYY")
+        hook = self.model.hook
+        start = time.time()
+        comm = 0
+        for key, parameters in zip(hook.keys, hook.parameters):
+            grad = parameters['weight'].grad.clone()
+            if key not in self.state.Ps.keys():
+                self.state.Ps[key] = None
+                self.state.Qs[key] = None
+                Q = torch.randn(grad.shape[1], rank).to(grad.device)
+            else:
+                Q = self.state.Qs[key]
+            P = grad @ Q
+            P = gram_schmidt(P)
+            Q = grad.t() @ P                    
+            self.state.Qs[key] = Q.clone()
+            self.state.Ps[key] = P.clone()    
+            torch.distributed.all_reduce(P)
+            torch.distributed.all_reduce(Q)
+            comm += P.element_size() * P.nelement()
+            comm += Q.element_size() * Q.nelement()
+            grad = P @ Q.t()
+            parameters['weight'].grad.data = grad.clone()
+        #print("Done with batch...")
+        #print(time.time() - start)
+        return comm
 
     def _rankdad_allgather_backward(self, pi_effective_rank=3, pi_numiterations=1, pi_use_sigma=True, **kwargs):
         """This function performs the backwards pass using rank-dAD for communication.
@@ -138,12 +200,12 @@ class DistributedRunner(dl.Runner):
                 device=act.device,
                 rank=pi_effective_rank,
                 numiterations=pi_numiterations,
-                use_sigma=use_sigma
+                #use_sigma=True
             )
             """Rank-reduction end. """
 
             """ Pick Max rank of the world and pad to match """
-            max_rank = torch.Tensor([delta_local_reduced.shape[1]]).to(self.device)
+            max_rank = torch.Tensor([delta_local_reduced.shape[1]]).to(act.device)
             torch.distributed.all_reduce(max_rank, torch.distributed.ReduceOp.MAX)
 
             if max_rank > delta_local_reduced.shape[1]:
@@ -170,7 +232,7 @@ class DistributedRunner(dl.Runner):
                 device=act_gathered.device,
                 rank=pi_effective_rank,
                 numiterations=pi_numiterations,
-                use_sigma=pi_use_sigma
+                #use_sigma=pi_use_sigma
             )
             comm += delta_global_reduced.element_size() * delta_global_reduced.nelement()
             comm += act_global_reduced.element_size() * act_global_reduced.nelement()
@@ -179,8 +241,8 @@ class DistributedRunner(dl.Runner):
             parameters['weight'].grad.data = (act_global_reduced.mm(delta_global_reduced.T)).T.contiguous()
             if "bias" in parameters.keys():
                 parameters["bias"].grad.data = delta_gathered.sum(0)
-        print("Done with batch...")
-        print(time.time() - start)
+        #print("Done with batch...")
+        #print(time.time() - start)
         return comm
 
 
@@ -246,8 +308,8 @@ class DistributedRunner(dl.Runner):
                     rank=effrank,
                     numiterations=numiterations
                 )
-            delta_global_reduced = coordinated_broadcast(delta_global_reduced, self.device, 0)
-            act_global_reduced = coordinated_broadcast(act_global_reduced, self.device, 0)
+            delta_global_reduced = coordinated_broadcast(delta_global_reduced, act.device, 0)
+            act_global_reduced = coordinated_broadcast(act_global_reduced, act.device, 0)
             # print("act_global_reduced shape", act_global_reduced.shape)
             # print("delta_global_reduced shape", delta_global_reduced.shape)            
             comm += delta_global_reduced.element_size() * delta_global_reduced.nelement()
@@ -264,8 +326,8 @@ class DistributedRunner(dl.Runner):
             parameters['weight'].grad.data = (act_global_reduced.mm(delta_global_reduced.T)).T.contiguous()
             if "bias" in parameters.keys():
                 parameters["bias"].grad.data = delta_global_reduced.sum(1)
-        print("Done with batch...")
-        print(time.time() - start, " seconds")
+        #print("Done with batch...")
+        #print(time.time() - start, " seconds")
         return comm
 
     def _topk_backward(self, k=3, **kwargs):
@@ -330,7 +392,7 @@ class DistributedRunner(dl.Runner):
 
     def on_loader_end(self, runner):
         """This function resolves metrics at the end of runtime"""
-        for key in ["loss", "cumulative_runtime"]:
+        for key in ["loss"]:
             self.loader_metrics[key] = self.meters[key].compute()[0]
         super().on_loader_end(runner)
 
