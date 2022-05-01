@@ -23,7 +23,7 @@ import torchvision.transforms as transforms
 from distributed_auto_differentiation.runners import DistributedRunner
 from distributed_auto_differentiation.models import get_model
 from distributed_auto_differentiation.hooks import ModelHook
-from distributed_auto_differentiation.utils import chunks
+from distributed_auto_differentiation.utils import chunks, dprint
 from distributed_auto_differentiation.data import get_dataset
 from distributed_auto_differentiation.callbacks import BatchTimerCallback
 #from distributed_auto_differentiation.criterion.msece import msece
@@ -33,7 +33,7 @@ if __name__=="__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--rank", type=int, default=0, help="The rank of this node in the distributed network")
     argparser.add_argument("--num-nodes", type=int, default=1, help="The number of nodes in the distributed network")
-    argparser.add_argument("--backend", type=str, default="gloo", help="The pytorch distributed backend to used <nccl/gloo>")
+    argparser.add_argument("--backend", type=str, default="nccl", help="The pytorch distributed backend to used <nccl/gloo>")
     argparser.add_argument("--dist-url", type=str, default="tcp://127.0.0.1:8998", help="The url of the distributed node given as tcp://<URL>:<PORT>")
     argparser.add_argument("--master-port", type=str, default="8998", help="The port to use for distributed training")
     argparser.add_argument("--master-addr", type=str, default="127.0.0.1", help="The URL of the master node")
@@ -42,21 +42,22 @@ if __name__=="__main__":
     argparser.add_argument("--epochs", type=int, default=10, help="The number of epochs to run")
     argparser.add_argument("--name", type=str, default="NONE", help="The name of the experiment. This determines the output directory.")
     argparser.add_argument("--log-dir", type=str, default="logs", help="The catalyst log directory.")
-    argparser.add_argument("--distributed-mode", type=str, default="dsgd", help="The type of distributed training to perform: dad, rankdad, or dsgd.")
+    argparser.add_argument("--distributed-mode", type=str, default="rankdad_ar", help="The type of distributed training to perform: dad, rankdad, or dsgd.")
     argparser.add_argument("--num-folds", type=int, default=10, help="The number of CV folds to support")
-    argparser.add_argument("--model", type=str, default="vit", help="The model to use for training - this supports prebuilt models")
+    argparser.add_argument("--model", type=str, default="icalstm", help="The model to use for training - this supports prebuilt models")
     argparser.add_argument("--model-args", type=str, default="[]", help="A list of arguments to send to the model")
     argparser.add_argument("--model-kwargs", type=str, default="{}", help="A dictionary string to send kwargs to the model")
-    argparser.add_argument("--dataset", type=str, default="tiny-imagenet", help="The name of the dataset. Only Mnist and dogsvscats are supported here - for other data see the old repository")
+    argparser.add_argument("--dataset", type=str, default="hcp_gender", help="The name of the dataset. Only Mnist and dogsvscats are supported here - for other data see the old repository")
     argparser.add_argument("--criterion", type=str, default="CrossEntropyLoss", help="The pytorch loss function to use <crossentropyloss>")
-    argparser.add_argument("--optimizer", type=str, default="Adam", help="the pytorch optimizer to use <adam/sgd>")
+    argparser.add_argument("--optimizer", type=str, default="sgd", help="the pytorch optimizer to use <adam/sgd>")
     argparser.add_argument("--scheduler", type=str, default="None", help="The learning rate scheduler to use <NOT SUPPORTED>")
     argparser.add_argument("--k", type=int, default=0, help="The fold to use out of the total number of folds must be less than num-folds")
     argparser.add_argument("--N", type=int, default=-1, help="The size of the training data to use. If given as -1, uses the full training set.")
     argparser.add_argument("--pi-numiterations", type=int, default=1, help="The number of power iterations")
-    argparser.add_argument("--pi-effective-rank", type=int, default=3, help="The maximum effective rank")
+    argparser.add_argument("--pi-effective-rank", type=int, default=2, help="The maximum effective rank")
     argparser.add_argument("--pi-use-sigma", type=int, default=1, help="Whether or not to compute sigma")
     argparser.add_argument("--pi-tolerance", type=float, default=1e-3, help="Tolerance for power iterations")
+    argparser.add_argument('--seed', type=int, default=314159)
     abbreviations = {
         "batch_size": "bs",
         "num_nodes": "nn",
@@ -79,7 +80,7 @@ if __name__=="__main__":
     }
     ignore_args = ["dist_url", "master_port", "master_addr", "log_dir", "name", "rank", "log_dir"]
     args = argparser.parse_args()
-    print("ARGS ", args.__dict__)
+    dprint("ARGS ", args.__dict__)
 
     # Resolve full output directory for site
     if args.name == "NONE":
@@ -94,24 +95,24 @@ if __name__=="__main__":
         args.name = "-".join(mystrs)
     experiment_dir = os.path.join(args.log_dir, args.name, "site_%d" % args.rank)
     os.makedirs(experiment_dir, exist_ok=True)
-    print("ARGS")
-    print(args.__dict__)
+    dprint("ARGS")
+    dprint(args.__dict__)
     #json.dump(os.path.join(args.log_dir, args.name, "args.json"), args.__dict__)
-
+    torch.manual_seed(args.seed)
     # initialize distributed process
     os.environ['MASTER_ADDR'] = args.master_addr
     os.environ['MASTER_PORT'] = args.master_port
     if args.backend == 'nccl':
         os.environ['NCCL_IB_DISABLE'] = '1'
 
-    print("Just Before Kill!!")
-    os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{print $2}') ")
+    #dprint("Just Before Kill!!")
+    #os.system("kill $(ps aux | grep multiprocessing.spawn | grep -v grep | awk '{dprint $2}') ")
     torch.distributed.init_process_group(backend=args.backend,
                                         init_method=args.dist_url,
                                         world_size=args.num_nodes,
                                         rank=args.rank)
 
-    print("the environment variables have been initiaized!")
+    dprint("the environment variables have been initiaized!")
 
     # first barrier to coordinate workers and master
     #torch.distributed.barrier()
@@ -120,7 +121,7 @@ if __name__=="__main__":
     # Load dataset according to world rank
     model_args = json.loads(args.model_args)
     model_kwargs = json.loads(args.model_kwargs)
-    print("Model kwargs", model_kwargs)
+    dprint("Model kwargs", model_kwargs)
     model = get_model(args.model, *model_args, **model_kwargs)
     hook = ModelHook(model, layer_names=["Linear"])
 
@@ -154,7 +155,7 @@ if __name__=="__main__":
     nrange_site = range(n_site)
     chunked = list(chunks(nrange_site, args.num_nodes))
     mychunk = chunked[args.rank]
-    print("Len train full", len(train_data))
+    dprint("Len train full", len(train_data))
     train_data = torch.utils.data.Subset(train_data, mychunk)
     valid_data = torch.utils.data.Subset(full_data, test_itr)
     transform = transforms.Compose(
@@ -164,8 +165,8 @@ if __name__=="__main__":
                 transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     train_data.dataset.transform = transform
-    print("Len Valid ", len(valid_data))
-    print("Len Train ", len(train_data))
+    dprint("Len Valid ", len(valid_data))
+    dprint("Len Train ", len(train_data))
 
     # Create dataloaders
     loaders = {
@@ -194,7 +195,7 @@ if __name__=="__main__":
             #"precision-recall": dl.PrecisionRecallF1SupportCallback(
             #    input_key="logits", target_key="targets", num_classes=num_classes
             #),
-            #"auc": dl.AUCCallback(input_key="logits", target_key="targets"),
+            "auc": dl.AUCCallback(input_key="logits", target_key="targets"),
             #"conf": dl.ConfusionMatrixCallback(
             #    input_key="logits", target_key="targets", num_classes=num_classes
             #),

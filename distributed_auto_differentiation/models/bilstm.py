@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
+from distributed_auto_differentiation.utils import dprint
 
 
 class LSTMCell(nn.Module):
 
-    def __init__(self, input_size, hidden_size, bias=True):
+    def __init__(self, input_size, hidden_size, bias=False):
         super(LSTMCell, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -28,6 +29,7 @@ class LSTMCell(nn.Module):
 
         hidden_seq = []
         for t in range(seq_sz):
+            #print("Forward t = ", t)
             preact = self.i2h(x[:, t, :]) + self.h2h(h_t)
             gates = preact[:, :3 * self.hidden_size].sigmoid()
             i_t, f_t, g_t, o_t = (
@@ -46,7 +48,7 @@ class LSTMCell(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, bidirectional=True, num_layers=1, bias=True):
+    def __init__(self, input_size, hidden_size, bidirectional=True, num_layers=1, bias=False):
         super().__init__()
         self.input_size = input_size
         self.num_layers = num_layers
@@ -65,6 +67,7 @@ class LSTM(nn.Module):
             c_t = torch.cat([c_t, rev_c_t], 1)
         return hidden_seq, (h_t, c_t)
 
+#from torch.nn import LSTM
 
 class ICALstm(nn.Module):
 
@@ -84,7 +87,8 @@ class ICALstm(nn.Module):
         self.num_comp = num_comps
         self.window_size = window_size
 
-        self.encoder = nn.Sequential(nn.Linear(self.num_comp * self.window_size, self.input_size), nn.ReLU())
+        #self.encoder = nn.Sequential(nn.Linear(self.num_comp * self.window_size, self.input_size), nn.ReLU())
+        self.encoder = nn.Sequential(nn.Linear(self.num_comp * self.window_size, self.input_size, bias=False), nn.ReLU())
         self.lstm = LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
@@ -94,18 +98,27 @@ class ICALstm(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Dropout(0.25),
-            nn.Linear(hidden_size, 256),
+            nn.Linear(hidden_size, 256, bias=False),
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Linear(256, 64),
+            nn.Linear(256, 64, bias=False),
             nn.ReLU(),
-            nn.Linear(64, num_cls)
+            nn.Linear(64, num_cls, bias=False)
         )
 
     def forward(self, x):
         """Encode to low dim first"""
+        #x = torch.stack([b.view(b.shape[0], -1) for b in x])        
+        #x = torch.permute(x, (1, 0, 2 ,3))
+        dprint(x.shape)
+        dprint([b.view(b.shape[0], -1).shape for b in x])
         x = torch.stack([self.encoder(b.view(b.shape[0], -1)) for b in x])  # 4 , 32, 256
+        dprint(x.shape)
+        #print(x.shape)
+        #x, h = self.e_lstm(x)
         o, h = self.lstm(x)
+        #print(o.shape)
         o = torch.mean(o, dim=1)
+        #print(o.shape)
         yhat = self.classifier(o.flatten(1))
         return torch.softmax(yhat, 1), h

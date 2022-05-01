@@ -1,5 +1,12 @@
 import numpy as np
 import torch
+from inspect import currentframe, getframeinfo
+import os
+
+def dprint(*args):
+    frameinfo = getframeinfo(currentframe().f_back)
+    print(os.path.basename(frameinfo.filename), currentframe().f_back.f_lineno, *args)
+
 
 def chunks(l, n):
     """Split an array l into n chunks, using pigeon-hole principle

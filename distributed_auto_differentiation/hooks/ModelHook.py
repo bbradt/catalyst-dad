@@ -8,7 +8,8 @@ This module implements a class which uses Pytorch forward and backward hooks
 """
 
 import torch.nn as nn
-
+from distributed_auto_differentiation.utils import dprint
+import torch
 try:
     import pydevd
 except Exception:
@@ -41,6 +42,7 @@ class ModelHook:
         if register_self:
             self.register_hooks(self.model, layer_names)
         self.save = save
+        self.T = dict()
         self.clear()
 
     def clear(self):
@@ -50,6 +52,7 @@ class ModelHook:
         self.backward_stats = dict()
         self.backward_return = None
         self.batch_indices = None
+        self.T = dict()
 
     def forward_hook_fn(self, module, input, output):
         """This is a generic forward hook function which saves all statistics from the forward pass
@@ -66,17 +69,38 @@ class ModelHook:
                 output - list <Tensor> : a list of pytorch tensors, contains the output information from
                             the forward pass
         """
+        mname = module._order
+        if mname not in self.T:
+            self.T[mname] = 0
+        #dprint("Forward from T ", self.T[mname], " to ", self.T[mname] + 1)
+
         try:
             pydevd.settrace(suspend=False, trace_only_current_thread=True)
         except Exception:
             pass
-        mname = module._order
+        
         if self.save:
-            if type(output) is not tuple:
-                output = [output]
+            if type(input) is tuple:
+                #if mname not in self.backward_stats:
+                #    dprint("FP: Saving in ", mname, " for the first time ")
+                #    dprint([i.shape for i in input])
+                input = input[0]
+            if type(output) is tuple:
+                #if mname not in self.backward_stats:
+                #    dprint([i.shape for i in output])
+                output = output[0]
+            if mname in self.forward_stats.keys():
+                #dprint("FP: Saving in ", mname, " AGAIN??? ")
+                #dprint(input.shape, output.shape)
+                self.forward_stats[mname]['input'].append(input)
+                self.forward_stats[mname]['output'].append(output)
             else:
-                output = list(output)
-            self.forward_stats[mname] = dict(input=list(input), output=output)
+                #dprint(input.shape, output.shape)
+                self.forward_stats[mname] = dict(input=[input], output=[output])
+            #if mname in self.forward_stats.keys():
+            #    dprint("OVERWROTE ", [t for t in self.forward_stats[mname]])
+        self.T[mname] += 1
+            
 
     def backward_hook_fn(self, module, input, output):
         """This is a generic backward hook function which saves all statistics from the backward pass
@@ -98,8 +122,33 @@ class ModelHook:
         except Exception:
             pass
         mname = module._order
-        if self.save:
-            self.backward_stats[mname] = dict(input=list(input), output=list(output))
+        #dprint("Backward in ", mname, " from T ", self.T[mname], " to ", self.T[mname] - 1)
+        self.T[mname] -= 1        
+        if self.save:            
+            aa = self.forward_stats[mname]['input'][self.T[mname]]
+            grad_guess = (aa.T @ output[0])
+            #dprint(torch.norm(input[1] - grad_guess))
+            if type(input) is tuple:
+                #if mname not in self.backward_stats:
+                #    dprint("BP: Saving in ", mname, " for the first time ")
+                #    dprint([i.shape for i in input if i is not None])                
+                input = input[0]
+            if type(output) is tuple:
+                #if mname not in self.backward_stats:
+                #    dprint([i.shape for i in output])
+                output = output[0]
+            if mname in self.backward_stats:
+                #dprint("BP: Saving in ", mname, " AGAIN??? ")
+                #if input is not None:
+                #    dprint(input.shape, output.shape)
+                self.backward_stats[mname]['input'].append(input)
+                self.backward_stats[mname]['output'].append(output)
+                #if module.weight.grad is not None:
+                #    dprint(module.weight.grad.shape)
+            else:                
+                self.backward_stats[mname] = dict(input=[input], output=[output])
+
+            
         if self.backward_return is not None:
             delta = self.backward_return[self.batch_indices, :]
             self.backward_return = None
@@ -108,7 +157,7 @@ class ModelHook:
             act_input = self.forward_stats[mname]["input"][0]
             grad_weight = act_input.t().mm(delta)
             new_delta = (delta * self.forward_stats[mname]["output"][0]) @ module.weight
-            return (new_delta, grad_weight.t())
+            #return (new_delta, grad_weight.t())
 
     def get_hook_fun(self, module):
         """An initial generic hook function for saving gradients.
@@ -152,4 +201,4 @@ class ModelHook:
             for parameter in module.parameters():
                 parameter.register_hook(self.get_hook_fun(module))
             if self.verbose:
-                print("Registered hook on module %s" % i)
+                dprint("Registered hook on module %s" % i)

@@ -1,7 +1,7 @@
 import torch
 
 
-def power_iteration_BC(B, C, rank=3, numiterations=1, device='cuda', tol=1e-3, compute_sigma=True):
+def power_iteration_BC(B, C, rank=3, numiterations=1, device='cuda', tol=1e-6, compute_sigma=False):
     """This function is the main workhorse of rank-dAD. The original function was 
             written by Sergey Plis in numpy, then translated into pytorch by Bradley Baker,
             and then modified by Sergey Plis and Bradley Baker. 
