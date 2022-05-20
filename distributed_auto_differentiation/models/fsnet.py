@@ -8,6 +8,7 @@ class FSNet(nn.Module):
         self.in_size = in_size
         self.out_size = out_size
         self.hidden_sizes = hidden_sizes
+        self.flatten = nn.Flatten(1)
         self.layers = nn.ModuleList()
 
         current_dim = self.in_size
@@ -26,6 +27,7 @@ class FSNet(nn.Module):
         self.fc_out = nn.Linear(current_dim, out_size)
 
     def forward(self, x):
+        x = self.flatten(x)
         for layer in self.layers:
             x = layer(x)
 

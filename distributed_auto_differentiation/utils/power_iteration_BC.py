@@ -1,7 +1,7 @@
 import torch
+from distributed_auto_differentiation.utils import dprint
 
-
-def power_iteration_BC(B, C, rank=3, numiterations=1, device='cuda', tol=1e-6, compute_sigma=False):
+def power_iteration_BC(B, C, rank=3, numiterations=1, device='cuda', tol=1e-3, compute_sigma=False):
     """This function is the main workhorse of rank-dAD. The original function was 
             written by Sergey Plis in numpy, then translated into pytorch by Bradley Baker,
             and then modified by Sergey Plis and Bradley Baker. 
@@ -17,6 +17,7 @@ def power_iteration_BC(B, C, rank=3, numiterations=1, device='cuda', tol=1e-6, c
         Returns:
             The "rank" top left and right eigenvectors
     """
+    #dprint(rank, tol, compute_sigma, B.shape, C.shape)
     [cm, cn] = C.shape
     if cm > cn:
         CC = torch.mm(C.T, C)
@@ -24,6 +25,9 @@ def power_iteration_BC(B, C, rank=3, numiterations=1, device='cuda', tol=1e-6, c
     else:
         BCT = torch.mm(B, C.T)
         BCC = torch.mm(BCT, BCT.T)
+    #dprint(BCT.shape, BCC.shape)
+    #dprint(CC.shape, BCC.shape, C.shape, B.shape, BCC.shape)
+    #dprint(torch.linalg.matrix_rank(BCC))
 
     def zero_result():        
         sigma = torch.tensor(0.0, device=device)

@@ -43,8 +43,7 @@ class DistributedRunner(dl.Runner):
             This class also contains the important functions needed for dSGD, dAD, and rank-dAD.
     """
     def __init__(self, model=None, criterion=None, optimizer=None, distributed_mode="dsgd", rank=None,
-                matrix_approximation_rank=1, start_powerSGD_iter=10, use_error_feedback=True, 
-                warm_start=True, **kwargs):
+                 **kwargs):
         """Kwargs:
             model - the pytorch model to run
             criterion - the loss function to use
@@ -72,64 +71,65 @@ class DistributedRunner(dl.Runner):
             key: metrics.AdditiveMetric(compute_on_call=False)
             for key in ["loss", "bits", "runtime"]
         }
+
     def handle_batch(self, batch): 
         """This function handles the batch computation, and is where 
                 the appropriate distributed function is selected for sharing statistics. 
                 Runtime and other metrics are also evaluated here.
         """
         input, target = batch
-        print("DR(81): Before forward call")
         logits = self.model(input)
         if type(logits) is tuple:
             logits = logits[0]
-        #print("DR(83): ", logits.shape, target.shape)
-        #print(logits, target.flatten())
         loss = self.criterion(logits, target.flatten())
-        if not os.path.exists('/data/users2/bbaker/projects/dist_autodiff/model_graph.png'):
-            make_dot(loss, params=dict(self.model.named_parameters()), show_attrs=True, show_saved=True).render('/data/users2/bbaker/projects/dist_autodiff/model_graph', 'png')
         self.batch_metrics.update({"loss": loss})     
-        self.batch_metrics.update({"bits": 0})        
-        #print(list(self.meters.keys()))
-        
+        self.batch_metrics.update({"bits": 0}) 
+        self.batch_metrics.update({"runtime": 0})        
+        start_time = time.time()        
         # Training Only
         if self.is_train_loader:
             self.optimizer.zero_grad()
-            dprint("Before backward call")
-            loss.backward(retain_graph=True)
-            start_time = time.time()
-            #print("WHATS MODE ", self.mode)
+            
+            loss.backward(retain_graph=True)            
             # Below is the switch for different distributed AD methods
             if self.mode == "dad":
                 comm = self._dad_backward(**self.kwargs)
             elif self.mode == "dsgd":
                 comm = self._dsgd_backward(**self.kwargs)
-            elif self.mode == "rankdad_ar":
-                comm = self._rankdad_allgather_backward(**self.kwargs)
             elif self.mode == "rankdad":
-                comm = self._rankdad_p2p_backward(**self.kwargs)
+                comm = self._rankdad_allgather_backward(**self.kwargs)
             elif self.mode == "topk":
                 comm = self._topk_backward(**self.kwargs)
             elif self.mode == "powersgd":
                 comm = self._powersgd_backward(**self.kwargs)
+            else:
+                comm = 0
             # update batch runtime
             runtime = time.time() - start_time
             self.batch_metrics.update({"runtime": runtime})
-            #self.meters["cumulative_runtime"].update(self.batch_metrics["runtime"], 1)
             self.batch_metrics.update({"bits": comm})
             for key in ["loss", "bits", "runtime"]:
                 try:
-                    self.meters[key].update(self.batch_metrics[key].item(), self.batch_size)
-                except Exception:
-                    self.meters[key].update(self.batch_metrics[key], self.batch_size)
+                    if key == 'loss':
+                        self.meters[key].update(self.batch_metrics[key].item(), self.batch_size)
+                    else:
+                        self.meters[key].update(self.batch_metrics[key].item(), 1)
+                except Exception as e:
+                    if key == 'loss':
+                        self.meters[key].update(self.batch_metrics[key], self.batch_size)
+                    else:
+                        self.meters[key].update(self.batch_metrics[key], 1)
             # Step optimizer
             self.optimizer.step()  
         else:
             for key in ["loss"]:
-                self.meters[key].update(self.batch_metrics[key].item(), self.batch_size)
+                self.meters[key].update(self.batch_metrics[key].item(), self.batch_size)                
+            for key in ["bits", "runtime"]:
+                self.meters[key].update(self.batch_metrics[key], 1)
         self.model.hook.clear()
-        logits = logits.argmax(1).reshape(target.shape)
-        #print(target.shape, logits.shape)
-        self.batch = dict(features=input, targets=target, logits=logits)
+        preds = logits.argmax(1).reshape(target.shape)
+        self.batch = dict(features=input, targets=target, logits=logits, preds=preds)        
+
 
     def _dad_backward(self,**kwargs):
         """This function performs the backwards pass using distributed AD for communication.
@@ -156,55 +156,20 @@ class DistributedRunner(dl.Runner):
             # Grab forward and backward stats from hook
             input_activations = hook.forward_stats[key]['input']
             deltas = hook.backward_stats[key]['output']
-            dprint(key)
-            #dprint(type(input_activations[0]), type(deltas[0]))
+            ##dprint(key)
+            ##dprint(type(input_activations[0]), type(deltas[0]))
             ts = len(input_activations)
-            #dprint(len(input_activations), len(deltas))
+            ##dprint(len(input_activations), len(deltas))
             test2 = []
             if len(input_activations) == 1:
                 input_activations = input_activations[0]
                 deltas = deltas[0]                
-                test = []
-                """
-                elif len(input_activations) == 32:
-                    test = []
-                    device = input_activations[0].device
-                    input_activations_2 = [torch.zeros((32, input_activations[0].shape[1])).to(device) for i in range(98)]
-                    deltas_2 = [torch.zeros((32, deltas[0].shape[1])).to(device) for i in range(98)]
-                    for t in range(98):
-                        for i in range(32):
-                            input_activations_2[t][i, ...] = input_activations[i][t, ...]
-                            deltas_2[t][i, ...] = deltas[i][t, ...]
-                    #dprint([t.shape for t in input_activations_2])
-                    #dprint([t.shape for t in deltas_2])
-                    test = [(t1.T @ t2).T for t1, t2 in zip(input_activations_2, deltas_2) if len(t1.shape) > 1]
-                    input_activations = torch.concat([t for t in input_activations_2 if len(t.shape) > 1], 0)
-                    deltas = torch.concat([t for t in deltas_2 if len(t.shape) > 1], 0)
-                """
             else:
-                #print([t.shape for t in input_activations])
-                #print([t.shape for t in deltas])
-                test = [(t1.T @ t2).T for t1, t2 in zip(input_activations, deltas) if len(t1.shape) > 1]
-                test2 = []
-                for act2, delt2 in zip(input_activations, deltas):
-                    gg = torch.zeros_like(test[0]).to(test[0].device)
-                    for i in range(act2.shape[0]):
-                        a = act2[i, ...].view(1, act2.shape[1])
-                        b = delt2[i, ...].view(1, delt2.shape[1])
-                        gg += (a.T @ b).T
-                    test2.append(gg)
-                #for t1, t2 in zip(input_activations, deltas)
-                input_activations = torch.concat([t for t in input_activations if len(t.shape) > 1], 0).double()
-                deltas = torch.concat([t for t in deltas if len(t.shape) > 1], 0).double()                                 
-                #dprint([len(t1) for t1 in input_activations])
-                #dprint(len(test))
-                #test = []
-                #input_activations = input_activations[-1]
-                #deltas = deltas[-1]
+                deltas.reverse()                
+                input_activations = torch.concat([t for t in input_activations if len(t.shape) > 1], 0)
+                deltas = torch.concat([t for t in deltas if len(t.shape) > 1], 0)                                 
             # Flatten matrices prior to computation
-            dprint(input_activations.shape, deltas.shape)
             act, delta = mm_flatten(input_activations, deltas)
-            #dprint(act.shape, delta.shape)
             act_gathered = [torch.zeros_like(act).to(act.device).contiguous() for _ in range(torch.distributed.get_world_size())]
             delta_gathered = [torch.zeros_like(delta).to(delta.device).contiguous() for _ in range(torch.distributed.get_world_size())]
             # Communicate Forward and Backward Stats
@@ -218,37 +183,21 @@ class DistributedRunner(dl.Runner):
             act_gathered = torch.cat(act_gathered)
             delta_gathered = torch.cat(delta_gathered)
 
-            # Product computation of gradient            
-            dprint(act_gathered.shape, delta_gathered.shape, module.weight.grad.shape)
-            new_grad = (act_gathered.T.mm(delta_gathered)).T.contiguous()
-            #new_grad /= act_gathered.shape[0]
+            # Product computation of gradient                        
+            new_grad = (act_gathered.T.mm(delta_gathered)).T.contiguous()            
             
-            dprint(torch.norm(module.weight.grad - new_grad))
-
-            if len(test) > 0:
-                dprint(torch.norm(module.weight.grad - torch.stack(test, -1).sum(-1))) 
-            if len(test2) > 0:
-                dprint(torch.norm(module.weight.grad - torch.stack(test2, -1).sum(-1))) 
             hook.forward_stats[key] = None
             hook.backward_stats[key] = None
             module.weight.grad.data = new_grad.data
-            dprint(torch.norm(module.weight.grad - new_grad))
-            #if "bias" in parameters.keys():
-            #    parameters["bias"].grad.data = delta_gathered.sum(0)
-            input()
         return comm
 
-    def _powersgd_backward(self, rank=2, **kwargs):
-        #print("HEYYYYY")
+    def _powersgd_backward(self, psgd_rank=2, **kwargs):
         hook = self.model.hook
-        start = time.time()
         comm = 0
         for key, parameters in zip(hook.keys, hook.parameters):
             grad = parameters['weight'].grad.clone()
-            if key not in self.state.Ps.keys():
-                self.state.Ps[key] = None
-                self.state.Qs[key] = None
-                Q = torch.randn(grad.shape[1], rank).to(grad.device)
+            if key not in self.state.Qs.keys():
+                Q = torch.randn(parameters['weight'].shape[-1], psgd_rank).to(grad.device)
             else:
                 Q = self.state.Qs[key]
             P = grad @ Q
@@ -256,17 +205,34 @@ class DistributedRunner(dl.Runner):
             Q = grad.t() @ P                    
             self.state.Qs[key] = Q.clone()
             self.state.Ps[key] = P.clone()    
-            torch.distributed.all_reduce(P)
-            torch.distributed.all_reduce(Q)
-            comm += P.element_size() * P.nelement()
-            comm += Q.element_size() * Q.nelement()
+            #Pcopy = P.clone()
+            #Precv = torch.zeros_like(P).to(P.device)
+            #Qrecv = torch.zeros_like(Q).to(Q.device)
+            Precv = [torch.zeros_like(P).to(P.device) for _ in range(torch.distributed.get_world_size())]
+            Qrecv = [torch.zeros_like(Q).to(Q.device) for _ in range(torch.distributed.get_world_size())]
+            #torch.distributed.all_reduce(P)
+            #torch.distributed.all_reduce(Q)
+            torch.distributed.all_gather(Precv, P.contiguous())            
+            torch.distributed.all_gather(Qrecv, Q.contiguous())            
+            #comm += P.element_size() * P.nelement()
+            #comm += Q.element_size() * Q.nelement()
+            for x in Precv:
+                comm += x.element_size() * x.nelement()
+            for x in Qrecv:
+                comm += x.element_size() * x.nelement()
+            P = torch.mean(torch.stack(Precv, -1), -1)
+            Q = torch.mean(torch.stack(Qrecv, -1), -1)
             grad = P @ Q.t()
-            parameters['weight'].grad.data = grad.clone()
+            ##dprint("Diff ", torch.norm(parameters['weight'].grad - grad))            
+            parameters['weight'].grad.data = grad.data
+            ##dprint("Diff ", torch.norm(parameters['weight'].grad - grad))
+            #input()
+            
         #print("Done with batch...")
         #print(time.time() - start)
         return comm
 
-    def _rankdad_allgather_backward(self, pi_effective_rank=3, pi_numiterations=1, pi_use_sigma=True, **kwargs):
+    def _rankdad_allgather_backward(self, pi_effective_rank=2, pi_numiterations=1, pi_tolerance=0.001, pi_use_sigma=False, **kwargs):
         """This function performs the backwards pass using rank-dAD for communication.
             This method rank-reduces the batch dimension for linear networks (or batch*sequence length
             for recurrent networks). 
@@ -288,44 +254,35 @@ class DistributedRunner(dl.Runner):
         #print("first backward")
         for m_i, module in enumerate(rev_mod):
             key = str(module) + str(m_i)
+            #dprint(key)
             input_activations = hook.forward_stats[key]['input']
-            grad = module.weight.grad.clone()
             deltas = hook.backward_stats[key]['output']
-            #print(input_activations.shape, )
-            #print(key)
-            #print(len(input_activations), len(deltas), grad.shape)
-            #input()
+            
             if len(input_activations) == 1:
                 input_activations = input_activations[0]
                 deltas = deltas[0]                
             else:
-                #print([t[0].shape for t in input_activations])
-                #print([t[0].shape for t in deltas])
-                input_activations = torch.concat([t[0] for t in input_activations if len(t[0].shape) > 1], 0).double()
-                deltas = torch.concat([t[0] for t in deltas if len(t[0].shape) > 1], 0).double()
-                #input_activations = (input_activations, )
-                #deltas = (deltas, )                
-            #print(input_activations.shape, deltas.shape)
-            #input()
-            act, delta = mm_flatten(input_activations, deltas)
-            #print(act.shape, delta.shape, grad.shape)
-            full_recon = delta.t() @ act
-            """ Rank reduce with PowerIteration """
-            rank = min(delta.shape[0], act.shape[0])
+                deltas.reverse()
+                input_activations = torch.concat([t for t in input_activations if len(t.shape) > 1], 0)
+                deltas = torch.concat([t for t in deltas if len(t.shape) > 1], 0)
+            act, delta = mm_flatten(input_activations, deltas)            
+            """ Rank reduce with PowerIteration """      
+            #dprint(act.shape, delta.shape)                  
             delta_local_reduced, act_local_reduced = power_iteration_BC(
                 delta.T,
                 act.T,                
                 device=act.device,
-                rank=rank,
+                rank=pi_effective_rank,
                 numiterations=pi_numiterations,
+                tol=pi_tolerance
                 #use_sigma=True
             )
-            #delta_local_reduced = delta.T.contiguous()
-            #act_local_reduced = act.T.contiguous()
-            #print(delta_local_reduced.shape, act_local_reduced.shape, grad.shape)
-            partial_recon = delta_local_reduced @ act_local_reduced.t()
-            #print(torch.norm(partial_recon - grad))
+            #correct_grad = module.weight.grad
+            ##dprint(torch.linalg.matrix_rank(correct_grad))
+            #grad_partial_reconstruct = (act_local_reduced @ delta_local_reduced.T).T
+            #dprint(torch.norm(correct_grad - grad_partial_reconstruct))
             """Rank-reduction end. """
+            ##dprint(delta_local_reduced.shape, act_local_reduced.shape)
 
             """ Pick Max rank of the world and pad to match """
             max_rank = torch.Tensor([delta_local_reduced.shape[1]]).to(act.device)
@@ -337,37 +294,34 @@ class DistributedRunner(dl.Runner):
                 delta_local_reduced = F.pad(delta_local_reduced, _pad)
             act_gathered = [torch.zeros_like(act_local_reduced.T) for _ in range(torch.distributed.get_world_size())]
             delta_gathered = [torch.zeros_like(delta_local_reduced.T) for _ in range(torch.distributed.get_world_size())]
-            
+            #dprint(act_local_reduced.shape, delta_local_reduced.shape)
             torch.distributed.all_gather(act_gathered, act_local_reduced.T)
             torch.distributed.all_gather(delta_gathered, delta_local_reduced.T)
             for x in act_gathered:
                 comm += x.element_size() * x.nelement()
             for x in delta_gathered:
-                comm += x.element_size() * x.nelement()
-
+                comm += x.element_size() * x.nelement()            
             act_gathered = torch.cat(act_gathered)
             delta_gathered = torch.cat(delta_gathered)
-            #print("act_gathered.shape ", act_gathered.shape)
-            #print("delta_gathered.shape ", delta_gathered.shape)
+            #dprint(act_gathered.shape, delta_gathered.shape, correct_grad.shape)
+            #grad_before_global = (act_gathered.T @ delta_gathered).T
+            #dprint(torch.norm(correct_grad - grad_before_global))            
             delta_global_reduced, act_global_reduced = power_iteration_BC(
                 delta_gathered.T,
                 act_gathered.T,                
                 device=act_gathered.device,
-                rank=rank,
+                rank=pi_effective_rank,
                 numiterations=pi_numiterations,
+                tol=pi_tolerance
                 #use_sigma=pi_use_sigma
             )
-            #delta_global_reduced = delta_gathered.T.contu
-            #act_global_reduced = act_gathered.T.contiguous()
+            #grad_after_global = (act_global_reduced @ delta_global_reduced.T).T
+            #dprint(torch.norm(correct_grad - grad_after_global))
             comm += delta_global_reduced.element_size() * delta_global_reduced.nelement()
             comm += act_global_reduced.element_size() * act_global_reduced.nelement()
-
-            #parameters['weight'].grad.data = (act_gathered.T.mm(delta_gathered)).T.contiguous()
-            module.weight.grad.data = (act_global_reduced.mm(delta_global_reduced.T)).T.contiguous()
-            #if "bias" in parameters.keys():
-            #    parameters["bias"].grad.data = delta_gathered.sum(0)
-        #print("Done with batch...")
-        #print(time.time() - start)
+            new_grad = (act_global_reduced.mm(delta_global_reduced.T)).T.contiguous()
+            module.weight.grad.data = new_grad.data
+            #input()
         return comm
 
 
@@ -517,7 +471,7 @@ class DistributedRunner(dl.Runner):
 
     def on_loader_end(self, runner):
         """This function resolves metrics at the end of runtime"""
-        for key in ["loss"]:
+        for key in ["loss", "bits", "runtime"]:
             self.loader_metrics[key] = self.meters[key].compute()[0]
         super().on_loader_end(runner)
 

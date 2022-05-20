@@ -126,7 +126,7 @@ class ModelHook:
         self.T[mname] -= 1        
         if self.save:            
             aa = self.forward_stats[mname]['input'][self.T[mname]]
-            grad_guess = (aa.T @ output[0])
+            #grad_guess = (aa.T @ output[0])
             #dprint(torch.norm(input[1] - grad_guess))
             if type(input) is tuple:
                 #if mname not in self.backward_stats:
@@ -197,7 +197,7 @@ class ModelHook:
             self.parameters.append(nn.ParameterDict(module.named_parameters()))
             module._order = str(module) + str(m_i)
             module.register_forward_hook(self.forward_hook_fn)
-            module.register_backward_hook(self.backward_hook_fn)
+            module.register_full_backward_hook(self.backward_hook_fn)
             for parameter in module.parameters():
                 parameter.register_hook(self.get_hook_fun(module))
             if self.verbose:

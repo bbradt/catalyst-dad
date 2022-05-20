@@ -76,19 +76,19 @@ class BiLstm(nn.Module):
                  hidden_size=256,
                  bidirectional=True,
                  num_cls=2,
-                 #num_comps=53,
-                 #window_size=20,
-                 num_layers=1, **kwargs):
+                 num_comps=53,
+                 window_size=20,
+                 num_layers=1):
         super().__init__()
 
         self.input_size = input_size
         self.hidden_size = hidden_size
 
-        #self.num_comp = num_comps
-        #self.window_size = window_size
+        self.num_comp = num_comps
+        self.window_size = window_size
 
         #self.encoder = nn.Sequential(nn.Linear(self.num_comp * self.window_size, self.input_size), nn.ReLU())
-        #self.encoder = nn.Sequential(nn.Linear(self.num_comp * self.window_size, self.input_size, bias=False), nn.ReLU())
+        self.encoder = nn.Sequential(nn.Linear(self.num_comp * self.window_size, self.input_size, bias=False), nn.ReLU())
         self.lstm = LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
@@ -108,7 +108,7 @@ class BiLstm(nn.Module):
 
     def forward(self, x):
         """Encode to low dim first"""
-        #x = torch.stack([self.encoder(b.view(b.shape[0], -1)) for b in x])  # 4 , 32, 256
+        x = torch.stack([self.encoder(b.view(b.shape[0], -1)) for b in x])  # 4 , 32, 256
         o, h = self.lstm(x)
         o = torch.mean(o, dim=1)
         yhat = self.classifier(o.flatten(1))
