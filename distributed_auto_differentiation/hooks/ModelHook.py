@@ -79,26 +79,13 @@ class ModelHook:
         except Exception:
             pass
         
-        if self.save:
-            if type(input) is tuple:
-                #if mname not in self.backward_stats:
-                #    dprint("FP: Saving in ", mname, " for the first time ")
-                #    dprint([i.shape for i in input])
-                input = input[0]
-            if type(output) is tuple:
-                #if mname not in self.backward_stats:
-                #    dprint([i.shape for i in output])
-                output = output[0]
+        if self.save:            
             if mname in self.forward_stats.keys():
-                #dprint("FP: Saving in ", mname, " AGAIN??? ")
-                #dprint(input.shape, output.shape)
                 self.forward_stats[mname]['input'].append(input)
                 self.forward_stats[mname]['output'].append(output)
             else:
                 #dprint(input.shape, output.shape)
                 self.forward_stats[mname] = dict(input=[input], output=[output])
-            #if mname in self.forward_stats.keys():
-            #    dprint("OVERWROTE ", [t for t in self.forward_stats[mname]])
         self.T[mname] += 1
             
 

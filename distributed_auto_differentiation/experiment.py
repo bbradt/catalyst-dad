@@ -15,10 +15,11 @@ import os
 import json
 import numpy as np 
 import torch
-import torch.nn as nn
+import torch.nn as nn 
 from catalyst import dl
 from sklearn.model_selection import KFold
 import torchvision.transforms as transforms
+import datetime
 
 # Module Imports
 from distributed_auto_differentiation.runners import DistributedRunner
@@ -43,13 +44,13 @@ if __name__=="__main__":
     argparser.add_argument("--batch-size", type=int, default=16, help="The local batch-size. The effective batch size is the number of sites multiplied by this number.")
     argparser.add_argument("--epochs", type=int, default=10, help="The number of epochs to run")
     argparser.add_argument("--log-dir", type=str, default="logs", help="The catalyst log directory.")
-    argparser.add_argument("--distributed-mode", type=str, default="nocomm", help="The type of distributed training to perform: dad, rankdad, or dsgd.")
+    argparser.add_argument("--distributed-mode", type=str, default="rankdad", help="The type of distributed training to perform: dad, rankdad, or dsgd.")
     argparser.add_argument("--num-folds", type=int, default=5, help="The number of CV folds to support")
-    argparser.add_argument("--model", type=str, default="vit", help="The model to use for training - this supports prebuilt models")
+    argparser.add_argument("--model", type=str, default="fsnet", help="The model to use for training - this supports prebuilt models")
     argparser.add_argument("--model-args", type=str, default="[]", help="A list of arguments to send to the model")
-    argparser.add_argument("--model-hidden-dims", type=str, default="[128]", help="hidden dims as str")
+    argparser.add_argument("--model-hidden-dims", type=str, default="[512,256,128,64,32,16]", help="hidden dims as str")
     argparser.add_argument("--model-kwargs", type=str, default="{}", help="A dictionary string to send kwargs to the model")
-    argparser.add_argument("--dataset", type=str, default="catsvsdogs", help="The name of the dataset. Only Mnist and dogsvscats are supported here - for other data see the old repository")
+    argparser.add_argument("--dataset", type=str, default="cifar10", help="The name of the dataset. Only Mnist and dogsvscats are supported here - for other data see the old repository")
     argparser.add_argument("--criterion", type=str, default="CrossEntropyLoss", help="The pytorch loss function to use <crossentropyloss>")
     argparser.add_argument("--optimizer", type=str, default="Adam", help="the pytorch optimizer to use <adam/sgd>")
     argparser.add_argument("--scheduler", type=str, default="None", help="The learning rate scheduler to use <NOT SUPPORTED>")
@@ -61,7 +62,7 @@ if __name__=="__main__":
     argparser.add_argument("--psgd-rank", type=int, default=2, help="Tolerance for power iterations")       
     argparser.add_argument("--pi-tolerance", type=float, default=1e-3, help="Tolerance for power iterations")
     argparser.add_argument('--seed', type=int, default=0)
-    abbreviations = {   
+    abbreviations = {    
         "batch_size": "bs",
         "num_nodes": "nn",
         "backend": "be",
@@ -96,10 +97,11 @@ if __name__=="__main__":
             else:
                 key = k
             mystrs.append("%s=%s" % (key ,v))
-    fold_name = "-".join(mystrs)
+    fold_name = ";".join(mystrs)
     experiment_dir = os.path.join(args.log_dir, args.name, fold_name, "site_%d" % args.rank)
     os.makedirs(experiment_dir, exist_ok=True)
     dprint("ARGS: ", args.__dict__)
+    dprint("experiment_dir: ", experiment_dir)
     with open(os.path.join(experiment_dir, "parameters.json"), "w") as file:
         json.dump(args.__dict__, file)
     # initialize distributed process
@@ -107,11 +109,19 @@ if __name__=="__main__":
     os.environ['MASTER_PORT'] = args.master_port
     if args.backend == 'nccl':
         os.environ['NCCL_IB_DISABLE'] = '1'
+    n = 0
+    while True and n < 10:
+        try:
+            torch.distributed.init_process_group(backend=args.backend,
+                                                init_method=args.dist_url,
+                                                world_size=args.num_nodes,
+                                                rank=args.rank)
+            break
+        except RuntimeError as e:
+            print(str(e))
+            print("Restarting...")
+            n += 1
 
-    torch.distributed.init_process_group(backend=args.backend,
-                                        init_method=args.dist_url,
-                                        world_size=args.num_nodes,
-                                        rank=args.rank)
 
     dprint("the environment variables have been initiaized!")
 
@@ -136,9 +146,9 @@ if __name__=="__main__":
 
 
     # Load dataset according to world rank
-    model_hidden_dims = json.loads(args.model_hidden_dims)
-    model_args = json.loads(args.model_args)
-    model_kwargs = json.loads(args.model_kwargs)
+    model_hidden_dims = eval(args.model_hidden_dims)
+    model_args = eval(args.model_args)
+    model_kwargs = eval(args.model_kwargs)
     dprint("Model kwargs", model_kwargs)
     model = get_model(args.model, input_size, num_classes + num_regression, *model_args, hidden_dims=model_hidden_dims, **model_kwargs)    
     hook = ModelHook(model, layer_names=["Linear"])
@@ -190,9 +200,9 @@ if __name__=="__main__":
                 input_key="logits", target_key="targets", num_classes=num_classes
             ),
             "auc": dl.AUCCallback(input_key="logits", target_key="targets"),
-            "conf": dl.ConfusionMatrixCallback(
-                input_key="logits", target_key="targets", num_classes=num_classes
-            ),
+            #"conf": dl.ConfusionMatrixCallback(
+            #    input_key="logits", target_key="targets", num_classes=num_classes
+            #),
             "runtime": BatchTimerCallback()
         }
     else:

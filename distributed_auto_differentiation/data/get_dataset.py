@@ -37,7 +37,7 @@ def get_dataset(name, *args, **kwargs):
         input_size = (784,)     
     elif name.lower() == "fmnist":
         transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            #transforms.Resize((224, 224)),
             transforms.ToTensor(),
         ])
         dataset = FashionMNIST('data', train=True, download=True,
@@ -46,7 +46,7 @@ def get_dataset(name, *args, **kwargs):
         input_size = (224, 224)
     elif name.lower() == "kmnist":
         transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            #transforms.Resize((224, 224)),
             transforms.ToTensor(),
         ])
         dataset = KMNIST('data', train=True, download=True,
@@ -55,7 +55,7 @@ def get_dataset(name, *args, **kwargs):
         input_size = (224, 224)
     elif name.lower() == "emnist":
         transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+            #transforms.Resize((224, 224)),
             transforms.ToTensor(),
         ])
         dataset = EMNIST('data', split="letters", train=True, download=True,
@@ -114,7 +114,7 @@ def get_dataset(name, *args, **kwargs):
         dataset = CIFAR10(root='./data', train=True,
                                         download=True, transform=transform)
         num_classes = 10
-        input_size = (224, 224)
+        input_size = (3,224, 224)
     elif name.lower() == "fsl_all":
         dataset = FSLDataset("./data/test_fsl/all_data.csv", y_ind=['isControl', 'age'])
         num_classes = 2

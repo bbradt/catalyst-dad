@@ -1,0 +1,28 @@
+# Experiment Design
+
+## Experiment Type 1: the role of rank and iterations in accuracy and communication
+
+Batch size is fixed at 32, 
+learning rate is fixed at 1e-4, 
+number of epochs is fixed to 25, 
+layer size is fixed
+    [512,256,128,64,32,16] for feedforward
+depth is fixed
+    6 for feedforward
+    4 + 2 for GRU, LSTM, ViT
+
+We have 3 basic designs for this experiment:
+    [RankCompare]. Rank 2,4,8,16,32 - pi fixed to 1, compare all methods
+    [PiCompare]. Pi 1,2,4,8,32,64,128 - rank fixed to 2, rankdad only
+    [PiRank]. Rank 2,4,8,16,32 and Pi 1,2,4,8,32,64,128 - only a few data sets due to complexity of search, rankdad only
+
+We have 8 data sets / architectures:
+    MNIST - FeedForward - Classification
+    CIFAR - FeedForward - Classification
+    CIFAR - ViT - Classification
+    UEA - LSTM - Classification
+    UEA - GRU - Classification
+    ICA - LSTM - Classification
+    ICA - GRU - Classification
+    HCP - ViT - Segmentation
+
